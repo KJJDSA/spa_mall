@@ -1,8 +1,9 @@
 // routes/goods.js
 const express = require('express'); //express 임포트
-const router = express.Router(); // express 의존함수 router임포트
 const Goods = require("../schemas/goods"); // schemas에 있는 goods를 임포트. 
 const Cart = require("../schemas/cart");
+const router = express.Router(); // express 의존함수 router임포트
+// const cartsRouter = require("./routes/carts"); //얘는 없어져야 하는거구나
 
 
 //기본형태
@@ -29,7 +30,7 @@ router.post("/goods", async (req, res) => {
 router.post("/goods/:goodsId/cart", async (req, res) => {
   const { goodsId } = req.params; //상품 id를 params로 받음.  
   const { quantity } = req.body;  //수량을 body post로 받음. json.
-
+  console.log({ goodsId }, { quantity })
   const existsCarts = await Cart.find({ goodsId: Number(goodsId) }); //아이디를 db에 조회. 숫자로 변환하여 조회 가능하게 함.
   if (existsCarts.length) {
     // .length는 변수에(배열에) 담긴 데이터가 있는지 판별할 수 있음. 0이면 falthy하므로 문제가 없지만, 찾아봤을 때 1개 이상이라면 이미 db에 있는 상품이므로 추가할 수 없음.
@@ -48,7 +49,8 @@ router.put("/goods/:goodsId/cart", async (req, res) => { //put 메서드. 수정
 
   const existsCarts = await Cart.find({ goodsId: Number(goodsId) });
   if (existsCarts.length) { // 찾아서 존재하긴 해야 수정을 하든 말든 할테니 여기선 true가 긍정의 의미.
-    await Cart.updateOne({ goodsId: Number(goodsId) }, { $set: { quantity } }); //위와 이부분만 다르다. 
+    if (quantity < 1) { return res.status(400).json(); } // 수량 1 미만이면 400번 오류랑 빈 화면 반환. 내가 만듦 ㅎ
+    else { await Cart.updateOne({ goodsId: Number(goodsId) }, { $set: { quantity } }) }; //위와 이부분만 다르다. 
   }
 
   res.json({ success: true });
@@ -65,6 +67,27 @@ router.delete("/goods/:goodsId/cart", async (req, res) => { //delete 메서드. 
 
   res.json({ result: "success" })
 });
+
+router.get("/goods/cart", async (req, res) => {
+  const carts = await Cart.find();
+  const goodsIds = carts.map((cart) => cart.goodsId);
+
+  const goods = await Goods.find({ goodsId: goodsIds });
+
+  const results = carts.map((cart) => {
+    return {
+      quantity: cart.quantity,
+      goods: goods.find((item) => item.goodsId === cart.goodsId)
+    };
+  });
+
+  res.json({
+    carts: results,
+  });
+});
+
+// router.use("/api/goods", [cartsRouter]); //얘도 딱히 필요없구나
+
 // routes/goods.js
 module.exports = router; //router라는 변수를 밖으로 내보냄(모듈방식)
 
